@@ -1,10 +1,28 @@
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <filesystem>
+using namespace std;
 
-// using declartion for cout, endl and string
-using std::cout;
-using std::endl;
-using std::string;
+string get_path(const string& command) {
+    const char* path_env = getenv("PATH");
+    if (!path_env) return "";  // Handle case where PATH is not set
 
+    string path_env_str = path_env;
+    string delimiter = ":";
+    size_t pos = 0;
+
+    while ((pos = path_env_str.find(delimiter)) != string::npos) {
+        string path = path_env_str.substr(0, pos);
+        path_env_str.erase(0, pos + delimiter.length());
+        filesystem::path candidate = filesystem::path(path) / command;
+        if (filesystem::exists(candidate) && !filesystem::is_directory(candidate)) {
+            return candidate.string();
+        }
+    }
+
+    return "";
+}
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -17,13 +35,10 @@ int main() {
     cout << "$ ";
     string input;
     getline(std::cin, input);
-    // if(input=="exit 0") return 0;
-    // std::cout << input << ": command not found" << std::endl;
+ 
     bool valid= 1;
 
-    //cout << "Echo test " << (input.find("echo ")==0) << endl;
-    //cout << "$" << input.substr(4)<< endl;
-    //cout << "TEST : " << (input.find("type ")==0)<< endl;
+   
 
     if (input == "exit 0") {
       return 0;
@@ -33,24 +48,32 @@ int main() {
       
       const int ECHO_LEN = 5; // Length of "echo "
       //std::cout << "Echo Found";
-      std::string text = input.substr(ECHO_LEN);
-      std::cout << text << std::endl;
+      string text = input.substr(ECHO_LEN);
+      cout << text << endl;
     } else if ((input.find("type ")) == 0){
         //const int ECHO_LEN = 5;
         
         std::string txt = input.substr(5);
             if(txt=="type" || txt=="exit" || txt=="echo"){
-              std::cout << txt << " is a shell builtin\n";
+              cout << txt << " is a shell builtin\n";
             }
             else{
-              std::cout << txt << ": not found\n";
+              //cout << txt << ": not found\n";
+              string path = get_path(txt);
+                 if(path.empty()){
+
+                        std::cout<<txt<<" not found\n";
+
+                    }
+
+                    else{
+
+                        cout<<txt<<" is "<<path<<std::endl;
+
+                    }
             }
-
     } else {
-      std::cout << input << ": command not found" << std::endl;
+      cout << input << ": command not found" << endl;
     }
-
   }
-  
-
 }
