@@ -1,7 +1,10 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 #include <filesystem>
+#include <unistd.h>
+#include <sys/wait.h>
 using namespace std;
 
 string get_path(const string& command) {
@@ -24,56 +27,85 @@ string get_path(const string& command) {
     return "";
 }
 
-int main() {
-  // Flush after every std::cout / std:cerr
-  std::cout << std::unitbuf;
-  std::cerr << std::unitbuf;
-  
-
-  while(true){
-
-    cout << "$ ";
-    string input;
-    getline(std::cin, input);
- 
-    bool valid= 1;
-
-   
-
-    if (input == "exit 0") {
-      return 0;
-    } 
-    // var.find() returns 0 if found the object 
-    else if (input.find("echo ") == 0) {
-      
-      const int ECHO_LEN = 5; // Length of "echo "
-      //std::cout << "Echo Found";
-      string text = input.substr(ECHO_LEN);
-      cout << text << endl;
-    } else if ((input.find("type ")) == 0){
-        //const int ECHO_LEN = 5;
-        
-        std::string txt = input.substr(5);
-            if(txt=="type" || txt=="exit" || txt=="echo"){
-              cout << txt << " is a shell builtin\n";
-            }
-            else{
-              //cout << txt << ": not found\n";
-              string path = get_path(txt);
-                 if(path.empty()){
-
-                        std::cout<<txt<<" not found\n";
-
-                    }
-
-                    else{
-
-                        cout<<txt<<" is "<<path<<std::endl;
-
-                    }
-            }
-    } else {
-      cout << input << ": command not found" << endl;
+vector<string> split(const string& input) {
+    vector<string> result;
+    istringstream iss(input);
+    string word;
+    while (iss >> word) {
+        result.push_back(word);
     }
-  }
+    return result;
+}
+
+int main() {
+    cout << std::unitbuf;  // Flush after every std::cout
+    cerr << std::unitbuf;
+
+    while (true) {
+        cout << "$ ";
+        string input;
+        getline(cin, input);
+
+        if (input.empty()) continue;
+
+        if (input == "exit 0") {
+            return 0;
+        }
+
+        vector<string> tokens = split(input);
+        string command = tokens[0];
+
+        if (command == "echo") {
+            for (size_t i = 1; i < tokens.size(); ++i) {
+                if (i > 1) cout << " ";
+                cout << tokens[i];
+            }
+            cout << endl;
+        } else if (command == "type") {
+            if (tokens.size() != 2) {
+                cerr << "Usage: type <command>" << endl;
+                continue;
+            }
+            string cmd_to_check = tokens[1];
+            if (cmd_to_check == "type" || cmd_to_check == "exit" || cmd_to_check == "echo") {
+                cout << cmd_to_check << " is a shell builtin\n";
+            } else {
+                string path = get_path(cmd_to_check);
+                if (path.empty()) {
+                    cout << cmd_to_check << ": not found\n";
+                } else {
+                    cout << cmd_to_check << " is " << path << endl;
+                }
+            }
+        } else {
+            string path = get_path(command);
+            if (path.empty()) {
+                cerr << command << ": command not found" << endl;
+                continue;
+            }
+
+            // Prepare arguments for execvp
+            vector<char*> args;
+            for (const auto& token : tokens) {
+                args.push_back(const_cast<char*>(token.c_str()));
+            }
+            args.push_back(nullptr);  // Null-terminate the arguments array
+
+            pid_t pid = fork();
+            if (pid == 0) {
+                // In child process
+                execvp(path.c_str(), args.data());
+                perror("execvp");  // If execvp fails
+                exit(EXIT_FAILURE);
+            } else if (pid > 0) {
+                // In parent process
+                int status;
+                waitpid(pid, &status, 0);  // Wait for child to finish
+            } else {
+                perror("fork");
+            }
+        }
+    }
+
+    return 0;
 }
