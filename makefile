@@ -7,3 +7,12 @@ git:
 
 	
 	# echo $(ARG)
+all:
+	g++ main.cpp -o main
+	./main
+	
+new:
+	g++ main.cpp -o main
+
+run: 
+	./main
